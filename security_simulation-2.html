@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Stack Simulation</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@300;400;600;700&display=swap');
+:root{
+  --bg:#050a0f;--surface:#0b1520;--border:#1a2d40;--accent:#00d4ff;
+  --green:#00ff88;--red:#ff4466;--amber:#ffaa00;--purple:#aa66ff;
+  --text:#c8dde8;--muted:#4a6070;
+  --mono:'Share Tech Mono',monospace;--sans:'Inter',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+.wrapper{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:24px 16px 60px;}
+header{text-align:center;margin-bottom:28px;}
+header h1{font-family:var(--mono);font-size:clamp(15px,4vw,24px);color:var(--accent);letter-spacing:2px;text-shadow:0 0 20px rgba(0,212,255,0.4);}
+header p{font-size:10px;color:var(--muted);margin-top:5px;line-height:1.6;}
+
+/* ATTACK SELECTOR — ใหม่ */
+.attack-selector{background:var(--surface);border:1px solid rgba(255,68,102,0.3);border-radius:8px;padding:14px;margin-bottom:18px;}
+.attack-selector-title{font-family:var(--mono);font-size:10px;color:var(--red);letter-spacing:1px;margin-bottom:10px;}
+.attack-selector-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:7px;}
+.atk-choice{background:transparent;border:1px solid rgba(255,68,102,0.25);border-radius:6px;padding:8px 10px;cursor:pointer;text-align:left;transition:all .2s;}
+.atk-choice:hover{background:rgba(255,68,102,0.08);border-color:rgba(255,68,102,0.6);}
+.atk-choice.selected{background:rgba(255,68,102,0.15);border-color:var(--red);box-shadow:0 0 8px rgba(255,68,102,0.2);}
+.atk-choice-name{font-family:var(--mono);font-size:11px;color:var(--red);font-weight:700;}
+.atk-choice-sub{font-size:9px;color:var(--muted);margin-top:3px;line-height:1.4;}
+.atk-choice.selected .atk-choice-sub{color:rgba(255,68,102,0.7);}
+.no-attack{border-color:rgba(0,212,255,0.25);}
+.no-attack:hover{background:rgba(0,212,255,0.06);border-color:rgba(0,212,255,0.5);}
+.no-attack.selected{background:rgba(0,212,255,0.1);border-color:var(--accent);box-shadow:0 0 8px rgba(0,212,255,0.2);}
+.no-attack .atk-choice-name{color:var(--accent);}
+
+/* PAYLOAD */
+.payload-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:18px;font-family:var(--mono);font-size:12px;}
+.payload-label{color:var(--muted);font-size:10px;letter-spacing:1px;margin-bottom:5px;}
+.payload-value{color:var(--accent);word-break:break-all;line-height:1.5;min-height:18px;transition:color .3s;}
+.payload-value.encrypted{color:var(--amber);}
+.payload-value.delivered{color:var(--green);}
+.payload-value.blocked{color:var(--red);}
+
+/* SEND BOX */
+.send-box{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;}
+.send-box input{flex:1;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 14px;color:var(--accent);font-family:var(--mono);font-size:14px;outline:none;transition:border-color .2s;}
+.send-box input:focus{border-color:var(--accent);box-shadow:0 0 10px rgba(0,212,255,0.15);}
+.send-box button{background:var(--accent);color:#000;border:none;border-radius:6px;padding:10px 20px;font-family:var(--mono);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:opacity .2s;}
+.send-box button:hover{opacity:.85;}
+.send-box button:disabled{opacity:.4;cursor:not-allowed;}
+
+/* PIPELINE */
+.pipeline{display:flex;flex-direction:column;gap:5px;}
+.layer{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:11px 14px;display:grid;grid-template-columns:28px 1fr auto;align-items:start;gap:10px;position:relative;overflow:hidden;transition:border-color .3s,background .3s;}
+.layer::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--muted);transition:background .3s;}
+.layer.active{border-color:var(--accent);background:rgba(0,212,255,0.05);}
+.layer.active::before{background:var(--accent);box-shadow:0 0 8px var(--accent);}
+.layer.done{border-color:rgba(0,255,136,0.3);background:rgba(0,255,136,0.03);}
+.layer.done::before{background:var(--green);}
+.layer.attacked{border-color:var(--red);background:rgba(255,68,102,0.06);}
+.layer.attacked::before{background:var(--red);}
+.layer-num{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;padding-top:2px;}
+.layer.active .layer-num{color:var(--accent);}
+.layer.done .layer-num{color:var(--green);}
+.layer-body{}
+.layer-name{font-size:13px;font-weight:600;color:var(--text);}
+.layer.active .layer-name{color:var(--accent);}
+.layer.done .layer-name{color:var(--green);}
+.layer.attacked .layer-name{color:var(--red);}
+.layer-desc{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;min-height:14px;}
+.layer.active .layer-desc{color:rgba(0,212,255,0.6);}
+.layer.done .layer-desc{color:rgba(0,255,136,0.5);}
+
+/* HISTORY BADGE — ใหม่ */
+.layer-history{margin-top:5px;display:flex;flex-wrap:wrap;gap:4px;min-height:0;}
+.hist-badge{font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:3px;border:1px solid;line-height:1.5;}
+.hist-badge.hpass{border-color:rgba(0,255,136,0.3);color:rgba(0,255,136,0.7);background:rgba(0,255,136,0.05);}
+.hist-badge.hfail{border-color:rgba(255,68,102,0.3);color:rgba(255,68,102,0.7);background:rgba(255,68,102,0.05);}
+
+.layer-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
+.layer-status{font-family:var(--mono);font-size:11px;font-weight:700;min-width:52px;text-align:right;}
+.layer-status.idle{color:var(--muted);}
+.layer-status.running{color:var(--amber);}
+.layer-status.pass{color:var(--green);}
+.layer-status.fail{color:var(--red);}
+.layer-enc{font-family:var(--mono);font-size:9px;color:var(--muted);text-align:right;max-width:90px;word-break:break-all;line-height:1.3;}
+
+.arrow{text-align:center;color:var(--muted);font-size:11px;margin:1px 0;line-height:1;transition:color .3s;}
+.arrow.lit{color:var(--accent);text-shadow:0 0 6px var(--accent);}
+
+/* SCORE */
+.score-bar{margin-top:16px;display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;}
+.score-label{color:var(--muted);min-width:60px;}
+.score-track{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden;}
+.score-fill{height:100%;width:0%;background:var(--green);border-radius:3px;transition:width .5s ease;box-shadow:0 0 6px var(--green);}
+.score-pct{color:var(--green);min-width:36px;text-align:right;}
+
+/* LOG */
+.log-box{margin-top:14px;background:#020608;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:var(--mono);font-size:11px;max-height:150px;overflow-y:auto;line-height:1.7;}
+.log-line{display:flex;gap:8px;}
+.log-time{color:var(--muted);min-width:56px;}
+.log-pass{color:var(--green);}
+.log-fail{color:var(--red);}
+.log-warn{color:var(--amber);}
+.log-info{color:var(--accent);}
+
+/* CMD TERMINAL */
+.cmd-wrap{margin-top:18px;}
+.cmd-header{display:flex;align-items:center;justify-content:space-between;background:#1a1a1a;border:1px solid #333;border-bottom:none;border-radius:8px 8px 0 0;padding:7px 14px;}
+.cmd-title-bar{display:flex;align-items:center;gap:8px;}
+.cmd-dot{width:11px;height:11px;border-radius:50%;}
+.cmd-dot.red{background:#ff5f57;}
+.cmd-dot.yellow{background:#febc2e;}
+.cmd-dot.green{background:#28c840;}
+.cmd-title{font-family:var(--mono);font-size:11px;color:#888;margin-left:6px;}
+.cmd-clear-btn{font-family:var(--mono);font-size:10px;color:#555;background:transparent;border:1px solid #333;border-radius:4px;padding:2px 10px;cursor:pointer;transition:color .2s,border-color .2s;}
+.cmd-clear-btn:hover{color:#aaa;border-color:#555;}
+.cmd-box{background:#000;border:1px solid #333;border-top:none;border-radius:0 0 8px 8px;padding:12px 14px;font-family:var(--mono);font-size:12px;min-height:180px;max-height:320px;overflow-y:auto;line-height:1.8;}
+.cmd-box::-webkit-scrollbar{width:4px;}
+.cmd-box::-webkit-scrollbar-track{background:#111;}
+.cmd-box::-webkit-scrollbar-thumb{background:#333;border-radius:2px;}
+.cmd-line{display:flex;flex-wrap:wrap;gap:0;align-items:baseline;}
+.cmd-prompt{color:#555;margin-right:6px;white-space:nowrap;}
+.cmd-pre{color:#ffffff;}    /* ก่อนเข้ารหัส — ขาว */
+.cmd-enc{color:#ffaa00;}    /* กำลังเข้ารหัส — เหลือง */
+.cmd-post{color:#00ff88;}   /* หลังเข้ารหัส — เขียว */
+.cmd-err{color:#ff4466;}
+.cmd-dim{color:#444;}
+.cmd-tag{color:#00d4ff;}
+.cmd-blink{animation:blink .8s step-end infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0;}}
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <header>
+    <h1>⬡ SECURITY STACK SIMULATOR</h1>
+    <p>WPA3 · AES-256-GCM · Duo Key · Bit Split · TOR · TLS · ZTN · mTLS · 802.1X · MFA · HSM · AIAD · Honeypot · QKD · Post-Quantum</p>
+  </header>
+
+  <!-- STEP 1: เลือกการโจมตี -->
+  <div class="attack-selector">
+    <div class="attack-selector-title">⚠ STEP 1 — เลือกการโจมตีก่อนส่งข้อมูล (เลือกได้ 1 อย่าง)</div>
+    <div class="attack-selector-grid" id="atk-grid"></div>
+  </div>
+
+  <!-- STEP 2: payload -->
+  <div class="payload-box">
+    <div class="payload-label">PAYLOAD</div>
+    <div class="payload-value" id="payload-display">—</div>
+  </div>
+
+  <!-- STEP 3: ส่ง -->
+  <div class="send-box">
+    <input type="text" id="msg-input" placeholder="STEP 2 — พิมพ์ข้อความที่ต้องการส่ง..." maxlength="80"/>
+    <button id="send-btn" onclick="startSim()">▶ ส่งข้อมูล</button>
+  </div>
+
+  <div class="pipeline" id="pipeline"></div>
+
+  <div class="score-bar">
+    <span class="score-label">SECURITY</span>
+    <div class="score-track"><div class="score-fill" id="score-fill"></div></div>
+    <span class="score-pct" id="score-pct">0%</span>
+  </div>
+
+  <div class="log-box" id="log-box">
+    <div class="log-line"><span class="log-time">--:--:--</span><span class="log-info">System ready. เลือกการโจมตี → พิมพ์ข้อความ → กด ▶ ส่งข้อมูล</span></div>
+  </div>
+
+  <!-- CMD TERMINAL -->
+  <div class="cmd-wrap">
+    <div class="cmd-header">
+      <div class="cmd-title-bar">
+        <div class="cmd-dot red"></div>
+        <div class="cmd-dot yellow"></div>
+        <div class="cmd-dot green"></div>
+        <span class="cmd-title">SECURITY STACK — CMD VERBOSE LOG</span>
+      </div>
+      <button class="cmd-clear-btn" onclick="clearCmd()">clear</button>
+    </div>
+    <div class="cmd-box" id="cmd-box">
+      <div class="cmd-line"><span class="cmd-dim">C:\SecurityStack&gt; </span><span class="cmd-pre">System initialized. Waiting for input...</span></div>
+      <div class="cmd-line"><span class="cmd-dim">_</span><span class="cmd-blink cmd-pre">█</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const LAYERS=[
+  {id:'wpa3',    name:'WPA3 / SAE',           desc:'Simultaneous Authentication of Equals handshake', time:300, result:'PMK derived — SAE handshake complete',
+   encFn:t=>'[SAE-PMK] '+randHex(16)+'...'},
+  {id:'aes',     name:'AES-256-GCM + HMAC',   desc:'Authenticated encryption — 3 block layers',       time:350, result:'Encrypted + GCM auth tag verified',
+   encFn:t=>'[AES-GCM] '+randHex(24)+'...'},
+  {id:'pubkey',  name:'Public Key + Duo Key',  desc:'ECDH-P521 + RSA key encapsulation',               time:380, result:'Shared secret encapsulated',
+   encFn:t=>'[ECDH] '+randHex(20)+'...'},
+  {id:'bitsplit',name:'Bit Splitting + Noise', desc:'011000/011001 spread + 4:1 noise padding',         time:280, result:'Bit stream noise-padded — pattern hidden',
+   encFn:t=>'011000 011001 011000 011001 011000...'},
+  {id:'tor',     name:'TOR Onion Routing',     desc:'3-hop onion encryption — exit node blind',         time:420, result:'Onion wrapped ×3 — exit node blind',
+   encFn:t=>'[ONION-3] '+randHex(32)+'...'},
+  {id:'tls',     name:'TLS-inside-TOR',        desc:'End-to-end TLS layer inside TOR tunnel',           time:240, result:'TLS inner layer — exit node cannot read',
+   encFn:t=>'[TLS1.3] '+randHex(20)+'...'},
+  {id:'ztn',     name:'Zero Trust Network',    desc:'Every request re-verified — no implicit trust',    time:280, result:'All ZTN factors verified — access granted',
+   encFn:t=>'[ZTN-OK] policy=strict ctx='+randHex(4)},
+  {id:'mtls',    name:'mTLS + 802.1X',         desc:'Mutual cert auth + RADIUS port control',           time:280, result:'mTLS cert OK + RADIUS port open',
+   encFn:t=>'[CERT] sha256:'+randHex(8)+'...'},
+  {id:'mfa',     name:'MFA / TOTP',            desc:'Time-based OTP — 30s window',                     time:230, result:'TOTP code verified — session authenticated',
+   encFn:t=>'[TOTP] code='+String(Math.floor(Math.random()*900000)+100000)+' t=30s'},
+  {id:'hsm',     name:'HSM Key Store',         desc:'Key-wrapped vault — zeroize after 1000 ops',       time:200, result:'Key wrapped in HSM — plaintext RAM clear',
+   encFn:t=>'[HSM] wrapped='+randHex(12)+'...'},
+  {id:'aiad',    name:'AI Anomaly Detection',  desc:'Z-score behavioral baseline — adaptive',           time:380, result:'AI score 0.0/100 — traffic normal',
+   encFn:t=>'[AI] z=0.3σ score=0/100 allow'},
+  {id:'honeypot',name:'Honeypot + Decoy',      desc:'Fake network traps — logs & isolates intruder',    time:280, result:'Real network path — no decoy triggered',
+   encFn:t=>'[HP] dst=real route=ok'},
+  {id:'qkd',     name:'QKD + Post-Quantum',    desc:'BB84 + CRYSTALS-Kyber + privacy amplification',    time:480, result:'QKD clean + PQ key active — Eve-proof',
+   encFn:t=>'[QKD] err=0.0% key='+randHex(16)+'...'},
+];
+
+const ATK_CHOICES=[
+  {id:'none',       name:'ไม่โจมตี',        sub:'ส่งข้อมูลปกติ ไม่มีการโจมตี',        target:null,       noatk:true},
+  {id:'bruteforce', name:'Brute Force',     sub:'เดา password / PMK วนซ้ำ',           target:'wpa3',     msg:'SAE blocks offline attack — PMK unreachable'},
+  {id:'mitm',       name:'Man-in-Middle',   sub:'แทรกกลางการสื่อสาร',                 target:'mtls',     msg:'mTLS requires both certs — rejected'},
+  {id:'tamper',     name:'Packet Tamper',   sub:'แก้ไข bit ในข้อมูลระหว่างทาง',       target:'aes',      msg:'GCM auth tag detects bit-flip — dropped'},
+  {id:'replay',     name:'Replay Attack',   sub:'ส่ง packet เก่าซ้ำ',                 target:'mfa',      msg:'TOTP expires 30s — replay invalid'},
+  {id:'eavesdrop',  name:'Quantum Eaves.',  sub:'ดักฟัง quantum channel',              target:'qkd',      msg:'Error rate 13%+ — Eve detected, PQ fallback'},
+  {id:'exfil',      name:'Data Exfil.',     sub:'ขโมยข้อมูลออกแบบช้าๆ',               target:'aiad',     msg:'Z-score 317σ anomaly — BLOCKED & logged'},
+  {id:'honeypot',   name:'Honeypot Probe',  sub:'สแกนหา decoy network',               target:'honeypot', msg:'Decoy triggered — IP logged & isolated'},
+];
+
+// history per layer: [{run, type, blocked}]
+const layerHistory={};
+let selectedAtk='none';
+let running=false;
+let runCount=0;
+
+function randHex(n){return Array.from({length:n},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join('');}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+// CMD functions
+function clearCmd(){
+  const b=document.getElementById('cmd-box');
+  b.innerHTML='<div class="cmd-line"><span class="cmd-dim">C:\\SecurityStack&gt; </span><span class="cmd-pre">cleared.</span></div><div class="cmd-line"><span class="cmd-blink cmd-pre">█</span></div>';
+}
+
+function cmdLine(prompt,text,cls){
+  const b=document.getElementById('cmd-box');
+  // remove blink cursor
+  const cur=b.querySelector('.cmd-blink');if(cur)cur.parentElement.remove();
+  const d=document.createElement('div');d.className='cmd-line';
+  d.innerHTML=`<span class="cmd-dim">${prompt}</span><span class="${cls}">${text}</span>`;
+  b.appendChild(d);
+  // add cursor back
+  const c=document.createElement('div');c.className='cmd-line';
+  c.innerHTML='<span class="cmd-blink cmd-pre">█</span>';
+  b.appendChild(c);
+  b.scrollTop=b.scrollHeight;
+}
+
+function cmdPre(text){cmdLine('C:\\&gt; ','[INPUT]  '+text,'cmd-pre');}
+function cmdEnc(text){cmdLine('C:\\&gt; ','[ENCRYPTING] '+text,'cmd-enc');}
+function cmdPost(text){cmdLine('C:\\&gt; ','[ENCODED] '+text,'cmd-post');}
+function cmdErr(text){cmdLine('C:\\&gt; ','[BLOCKED] '+text,'cmd-err');}
+function cmdTag(text){cmdLine('','>>> '+text,'cmd-tag');}
+function cmdDim(text){cmdLine('','    '+text,'cmd-dim');}
+
+const CMD_DETAIL={
+  wpa3:[
+    t=>['pre',`INIT SAE handshake with client "${t}"`],
+    t=>['enc',`Computing PWE from password + MAC addresses...`],
+    t=>['enc',`Generating commit scalar: ${randHex(8)}...`],
+    t=>['enc',`Exchanging commit element via DH group 19...`],
+    t=>['post',`PMK derived: ${randHex(16)}... (256-bit)`],
+    t=>['post',`PTK installed — 4-way handshake complete`],
+  ],
+  aes:[
+    t=>['pre',`Plaintext input: "${t}" (${t.length} chars)`],
+    t=>['enc',`Generating 256-bit key: ${randHex(16)}...`],
+    t=>['enc',`Generating 96-bit nonce: ${randHex(6)}...`],
+    t=>['enc',`Layer-A (16-bit seed): XOR block 0x${randHex(4)}`],
+    t=>['enc',`Layer-B (32-bit seed): CBC chain 0x${randHex(8)}`],
+    t=>['enc',`Layer-C (64-bit seed): GCM tag 0x${randHex(8)}`],
+    t=>['post',`Ciphertext: ${randHex(24)}...`],
+    t=>['post',`Auth tag appended — tamper detection active`],
+  ],
+  pubkey:[
+    t=>['pre',`Generating ECDH keypair (P-521 curve)...`],
+    t=>['enc',`Private key: ${randHex(16)}... [NEVER LEAVES HSM]`],
+    t=>['enc',`Public key: 04${randHex(24)}...`],
+    t=>['enc',`Computing shared secret via ECDH exchange...`],
+    t=>['enc',`HKDF derive: salt=kyber_v1 info=session`],
+    t=>['post',`Session key: ${randHex(16)}... (256-bit)`],
+    t=>['post',`RSA-4096 wraps session key for transport`],
+  ],
+  bitsplit:[
+    t=>['pre',`Input bytes: ${Array.from(t.substring(0,4)).map(c=>c.charCodeAt(0).toString(2).padStart(8,'0')).join(' ')}...`],
+    t=>['enc',`Splitting each bit → 6-bit spread...`],
+    t=>['enc',`bit=0 → 011000, bit=1 → 011001`],
+    t=>['enc',`Inserting 4:1 noise ratio per signal bit...`],
+    t=>['enc',`Noise: ${randHex(4)} ${randHex(4)} ${randHex(4)}...`],
+    t=>['post',`Output: 011000 ${randHex(1)} ${randHex(1)} ${randHex(1)} 011001 ${randHex(1)} ...`],
+    t=>['post',`Pattern entropy: ${16+Math.floor(Math.random()*4)} unique byte values`],
+  ],
+  tor:[
+    t=>['pre',`Selecting 3 TOR relays from consensus...`],
+    t=>['enc',`Relay-1: ${randHex(4)}.onion — encrypting outer layer`],
+    t=>['enc',`Relay-2: ${randHex(4)}.onion — encrypting middle layer`],
+    t=>['enc',`Relay-3: ${randHex(4)}.onion — encrypting inner layer`],
+    t=>['post',`Onion packet: ${randHex(32)}...`],
+    t=>['post',`Exit node sees only inner TLS — plaintext hidden`],
+  ],
+  tls:[
+    t=>['pre',`TLS 1.3 ClientHello → server...`],
+    t=>['enc',`Negotiating cipher: TLS_AES_256_GCM_SHA384`],
+    t=>['enc',`ServerHello + Certificate received`],
+    t=>['enc',`ECDHE key exchange: ${randHex(8)}...`],
+    t=>['post',`Handshake complete — forward secrecy enabled`],
+    t=>['post',`Record encrypted: ${randHex(20)}...`],
+  ],
+  ztn:[
+    t=>['pre',`Zero Trust policy check initiated...`],
+    t=>['enc',`Verifying identity: ${t.substring(0,6).toUpperCase()}_USER`],
+    t=>['enc',`Checking device compliance: cert=${randHex(4)}...`],
+    t=>['enc',`Validating time window: ${new Date().getHours()}:xx — OK`],
+    t=>['enc',`Confirming MFA status: passed`],
+    t=>['post',`All 4 factors verified — access GRANTED`],
+    t=>['post',`Session token: ${randHex(12)}... (TTL=300s)`],
+  ],
+  mtls:[
+    t=>['pre',`mTLS mutual handshake starting...`],
+    t=>['enc',`Server cert fingerprint: sha256:${randHex(8)}...`],
+    t=>['enc',`Client cert presented: sha256:${randHex(8)}...`],
+    t=>['enc',`RADIUS 802.1X port auth request → server`],
+    t=>['post',`Both certs verified — port OPEN`],
+    t=>['post',`EAP-TLS authentication successful`],
+  ],
+  mfa:[
+    t=>['pre',`TOTP generation (RFC 6238)...`],
+    t=>['enc',`time_step = floor(${Math.floor(Date.now()/1000)} / 30) = ${Math.floor(Date.now()/30000)}`],
+    t=>['enc',`HMAC-SHA1(secret, time_step) = ${randHex(10)}...`],
+    t=>['enc',`Truncating to 6 digits...`],
+    t=>['post',`OTP: ${String(Math.floor(Math.random()*900000)+100000)} — valid 30s`],
+    t=>['post',`Server verified — session authenticated`],
+  ],
+  hsm:[
+    t=>['pre',`HSM key operation request...`],
+    t=>['enc',`Unwrapping session key from vault (AES-GCM)...`],
+    t=>['enc',`Key material in secure enclave — RAM never exposed`],
+    t=>['enc',`Encrypting payload inside HSM boundary...`],
+    t=>['post',`Key zeroized after operation (usage: +1/1000)`],
+    t=>['post',`Ciphertext returned: ${randHex(16)}...`],
+  ],
+  aiad:[
+    t=>['pre',`AI anomaly detector evaluating traffic...`],
+    t=>['enc',`packet_size: 512B — mean=498 std=42 → Z=0.3σ`],
+    t=>['enc',`req_per_min: 58 — mean=60 std=8 → Z=0.2σ`],
+    t=>['enc',`bytes_out: 5120 — mean=5200 std=380 → Z=0.2σ`],
+    t=>['post',`Composite score: 0.0/100 — NORMAL`],
+    t=>['post',`Traffic allowed — baseline updated`],
+  ],
+  honeypot:[
+    t=>['pre',`Checking destination against decoy map...`],
+    t=>['enc',`Real network: 10.0.0.1-3`],
+    t=>['enc',`Decoy network: 10.0.0.100-102 [TRAP]`],
+    t=>['enc',`Destination: 10.0.0.${1+Math.floor(Math.random()*3)} → REAL`],
+    t=>['post',`Route: real network — no honeypot triggered`],
+    t=>['post',`Connection forwarded normally`],
+  ],
+  qkd:[
+    t=>['pre',`BB84 QKD protocol initiating...`],
+    t=>['enc',`Alice sending ${512} qubits in random bases...`],
+    t=>['enc',`Bob measuring with random basis selection...`],
+    t=>['enc',`Sifting: matching bases = ${Math.floor(512*0.48)} bits`],
+    t=>['enc',`Error rate check: 0.0% (threshold 11%)`],
+    t=>['enc',`Privacy amplification: SHA-256 hash of raw key`],
+    t=>['post',`Final QKD key: ${randHex(16)}... (256-bit)`],
+    t=>['post',`Post-quantum Kyber fallback: ARMED`],
+    t=>['post',`Channel secure — Eve-proof`],
+  ],
+};
+
+
+function now(){
+  const d=new Date();
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+}
+
+// Build attack selector
+function buildAtkGrid(){
+  const g=document.getElementById('atk-grid');
+  g.innerHTML='';
+  ATK_CHOICES.forEach(a=>{
+    const b=document.createElement('button');
+    b.className='atk-choice'+(a.noatk?' no-attack':'')+(a.id===selectedAtk?' selected':'');
+    b.id='atk-'+a.id;
+    b.innerHTML=`<div class="atk-choice-name">${a.noatk?'✓ ':''} ${a.name}</div><div class="atk-choice-sub">${a.sub}</div>`;
+    b.onclick=()=>selectAtk(a.id);
+    g.appendChild(b);
+  });
+}
+
+function selectAtk(id){
+  if(running)return;
+  selectedAtk=id;
+  document.querySelectorAll('.atk-choice').forEach(b=>b.classList.remove('selected'));
+  document.getElementById('atk-'+id).classList.add('selected');
+  addLog('info',`เลือก: ${ATK_CHOICES.find(a=>a.id===id).name}`);
+}
+
+// Build pipeline
+function buildPipeline(){
+  const el=document.getElementById('pipeline');
+  el.innerHTML='';
+  LAYERS.forEach((l,i)=>{
+    const hist=layerHistory[l.id]||[];
+    const histHTML=hist.map(h=>`<span class="hist-badge ${h.blocked?'hfail':'hpass'}">#${h.run} ${h.blocked?'✗ '+h.atkName:'✓ PASS'}</span>`).join('');
+    const d=document.createElement('div');
+    d.className='layer';d.id='layer-'+l.id;
+    d.innerHTML=`
+      <span class="layer-num">${String(i+1).padStart(2,'0')}</span>
+      <div class="layer-body">
+        <div class="layer-name">${l.name}</div>
+        <div class="layer-desc" id="desc-${l.id}">${l.desc}</div>
+        <div class="layer-history" id="hist-${l.id}">${histHTML}</div>
+      </div>
+      <div class="layer-right">
+        <span class="layer-status idle" id="status-${l.id}">IDLE</span>
+        <span class="layer-enc" id="enc-${l.id}"></span>
+      </div>
+    `;
+    el.appendChild(d);
+    if(i<LAYERS.length-1){
+      const a=document.createElement('div');a.className='arrow';a.id='arrow-'+i;a.textContent='↓';el.appendChild(a);
+    }
+  });
+}
+
+function setScore(pct,color){
+  const f=document.getElementById('score-fill');
+  f.style.width=pct+'%';
+  f.style.background=color||'#00ff88';
+  f.style.boxShadow=`0 0 6px ${color||'#00ff88'}`;
+  document.getElementById('score-pct').style.color=color||'#00ff88';
+  document.getElementById('score-pct').textContent=pct+'%';
+}
+
+function addLog(type,msg){
+  const box=document.getElementById('log-box');
+  const line=document.createElement('div');line.className='log-line';
+  line.innerHTML=`<span class="log-time">${now()}</span><span class="log-${type}">${msg}</span>`;
+  box.appendChild(line);box.scrollTop=box.scrollHeight;
+}
+
+function addHistBadge(layerId,run,blocked,atkName){
+  if(!layerHistory[layerId])layerHistory[layerId]=[];
+  layerHistory[layerId].push({run,blocked,atkName});
+  // keep last 5
+  if(layerHistory[layerId].length>5)layerHistory[layerId].shift();
+  const histEl=document.getElementById('hist-'+layerId);
+  if(histEl){
+    const span=document.createElement('span');
+    span.className=`hist-badge ${blocked?'hfail':'hpass'}`;
+    span.textContent=`#${run} ${blocked?'✗ '+atkName:'✓ PASS'}`;
+    histEl.appendChild(span);
+    // keep max 5 badges visible
+    while(histEl.children.length>5)histEl.removeChild(histEl.firstChild);
+  }
+}
+
+async function startSim(){
+  if(running)return;
+  const input=document.getElementById('msg-input').value.trim();
+  if(!input){addLog('warn','กรุณาพิมพ์ข้อความก่อน');return;}
+  running=true;runCount++;
+  const thisRun=runCount;
+  const atkDef=ATK_CHOICES.find(a=>a.id===selectedAtk);
+  document.getElementById('send-btn').disabled=true;
+
+  // Reset pipeline (keep history)
+  buildPipeline();
+  setScore(0,'#00ff88');
+
+  const payEl=document.getElementById('payload-display');
+  payEl.className='payload-value';payEl.textContent=input;
+
+  addLog('info',`── Run #${thisRun} | Attack: ${atkDef.name} | Msg: "${input}" ──`);
+  cmdTag(`RUN #${thisRun} | ATTACK: ${atkDef.name.toUpperCase()} | MSG: "${input}"`);
+  cmdDim('─'.repeat(52));
+
+  let passCount=0;
+  let blocked=false;
+
+  for(let i=0;i<LAYERS.length;i++){
+    const l=LAYERS[i];
+    const layEl=document.getElementById('layer-'+l.id);
+    const stEl=document.getElementById('status-'+l.id);
+    const deEl=document.getElementById('desc-'+l.id);
+    const encEl=document.getElementById('enc-'+l.id);
+    const arEl=document.getElementById('arrow-'+i);
+
+    layEl.className='layer active';
+    stEl.className='layer-status running';stEl.textContent='···';
+    if(arEl)arEl.className='arrow lit';
+
+    // CMD: show layer header
+    cmdLine('','','');
+    cmdTag(`[${String(i+1).padStart(2,'0')}] ${l.name.toUpperCase()}`);
+
+    const isTargeted=atkDef.target===l.id;
+    const details=CMD_DETAIL[l.id]||[];
+
+    if(isTargeted){
+      // CMD: show attack sequence
+      cmdPre(`Payload entering ${l.name}...`);
+      await sleep(l.time*0.3);
+      cmdErr(`⚠ ATTACK DETECTED: ${atkDef.name}`);
+      await sleep(l.time*0.3);
+      cmdErr(`${atkDef.msg}`);
+      await sleep(l.time*0.4);
+      cmdErr(`Layer ${l.name} — TRANSMISSION BLOCKED`);
+
+      layEl.className='layer attacked';
+      stEl.className='layer-status fail';stEl.textContent='BLOCKED';
+      deEl.textContent=`✗ ${atkDef.name}: ${atkDef.msg}`;
+      encEl.textContent='';
+      addHistBadge(l.id,thisRun,true,atkDef.name);
+      payEl.className='payload-value blocked';
+      payEl.textContent=`✗ BLOCKED at ${l.name} — ${atkDef.msg}`;
+      addLog('fail',`[${String(i+1).padStart(2,'0')}] ${l.name} — BLOCKED by ${atkDef.name}`);
+      setScore(Math.round((passCount/LAYERS.length)*100),'#ff4466');
+      blocked=true;
+      break;
+    } else {
+      // CMD: show detailed steps with colors
+      const stepDelay=Math.floor(l.time/(details.length+1));
+      for(const stepFn of details){
+        const[type,text]=stepFn(input);
+        if(type==='pre') cmdPre(text);
+        else if(type==='enc') cmdEnc(text);
+        else if(type==='post') cmdPost(text);
+        await sleep(stepDelay);
+      }
+
+      layEl.className='layer done';
+      stEl.className='layer-status pass';stEl.textContent='PASS';
+      deEl.textContent=l.result;
+      const encStr=l.encFn(input);
+      encEl.textContent=encStr;
+      addHistBadge(l.id,thisRun,false,'');
+      passCount++;
+      cmdPost(`✓ ${l.name} PASS`);
+
+      if(i===LAYERS.length-1){
+        payEl.className='payload-value delivered';
+        payEl.textContent='✓ DELIVERED — '+input;
+      } else {
+        payEl.className='payload-value encrypted';
+        payEl.textContent=encStr;
+      }
+      addLog('pass',`[${String(i+1).padStart(2,'0')}] ${l.name} — PASS`);
+      setScore(Math.round((passCount/LAYERS.length)*100));
+      await sleep(40);
+    }
+  }
+
+  cmdDim('─'.repeat(52));
+  if(!blocked){
+    cmdPost(`✓✓ RUN #${thisRun} COMPLETE — ALL ${LAYERS.length} LAYERS PASSED`);
+    addLog('pass',`── Run #${thisRun} สำเร็จ 100% ──`);
+  } else {
+    cmdErr(`✗ RUN #${thisRun} BLOCKED — ${atkDef.name}`);
+    addLog('warn',`── Run #${thisRun} ถูก BLOCK — ${atkDef.name} ──`);
+  }
+
+  document.getElementById('send-btn').disabled=false;
+  running=false;
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  buildAtkGrid();
+  buildPipeline();
+  document.getElementById('msg-input').addEventListener('keydown',e=>{if(e.key==='Enter')startSim();});
+});
+</script>
+</body>
+</html>
