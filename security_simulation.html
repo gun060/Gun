@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Stack Simulation</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@300;400;600;700&display=swap');
+  :root {
+    --bg:#050a0f;--surface:#0b1520;--border:#1a2d40;--accent:#00d4ff;
+    --green:#00ff88;--red:#ff4466;--amber:#ffaa00;--text:#c8dde8;--muted:#4a6070;
+    --mono:'Share Tech Mono',monospace;--sans:'Inter',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+  .wrapper{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:24px 16px 60px;}
+  header{text-align:center;margin-bottom:32px;}
+  header h1{font-family:var(--mono);font-size:clamp(16px,4vw,26px);color:var(--accent);letter-spacing:2px;text-shadow:0 0 20px rgba(0,212,255,0.4);}
+  header p{font-size:11px;color:var(--muted);margin-top:6px;letter-spacing:.5px;line-height:1.6;}
+  .send-box{display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap;}
+  .send-box input{flex:1;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 14px;color:var(--accent);font-family:var(--mono);font-size:14px;outline:none;transition:border-color .2s;}
+  .send-box input:focus{border-color:var(--accent);box-shadow:0 0 10px rgba(0,212,255,0.15);}
+  .send-box button{background:var(--accent);color:#000;border:none;border-radius:6px;padding:10px 20px;font-family:var(--mono);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:opacity .2s;}
+  .send-box button:hover{opacity:.85;}
+  .send-box button:disabled{opacity:.4;cursor:not-allowed;}
+  .payload-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-family:var(--mono);font-size:12px;}
+  .payload-label{color:var(--muted);font-size:10px;letter-spacing:1px;margin-bottom:5px;}
+  .payload-value{color:var(--accent);word-break:break-all;line-height:1.5;min-height:18px;transition:color .3s;}
+  .payload-value.encrypted{color:var(--amber);}
+  .payload-value.delivered{color:var(--green);}
+  .pipeline{display:flex;flex-direction:column;gap:5px;}
+  .layer{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:11px 14px;display:grid;grid-template-columns:28px 1fr auto;align-items:center;gap:10px;position:relative;overflow:hidden;transition:border-color .3s,background .3s;}
+  .layer::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--muted);transition:background .3s;}
+  .layer.active{border-color:var(--accent);background:rgba(0,212,255,0.05);}
+  .layer.active::before{background:var(--accent);box-shadow:0 0 8px var(--accent);}
+  .layer.done{border-color:rgba(0,255,136,0.3);background:rgba(0,255,136,0.03);}
+  .layer.done::before{background:var(--green);}
+  .layer.attacked{border-color:var(--red);background:rgba(255,68,102,0.05);}
+  .layer.attacked::before{background:var(--red);}
+  .layer-num{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;}
+  .layer.active .layer-num{color:var(--accent);}
+  .layer.done .layer-num{color:var(--green);}
+  .layer-name{font-size:13px;font-weight:600;color:var(--text);}
+  .layer.active .layer-name{color:var(--accent);}
+  .layer.done .layer-name{color:var(--green);}
+  .layer-desc{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;min-height:14px;}
+  .layer.active .layer-desc{color:rgba(0,212,255,0.6);}
+  .layer.done .layer-desc{color:rgba(0,255,136,0.5);}
+  .layer-status{font-family:var(--mono);font-size:11px;font-weight:700;min-width:48px;text-align:right;}
+  .layer-status.idle{color:var(--muted);}
+  .layer-status.running{color:var(--amber);}
+  .layer-status.pass{color:var(--green);}
+  .layer-status.fail{color:var(--red);}
+  .arrow{text-align:center;color:var(--muted);font-size:11px;margin:1px 0;line-height:1;transition:color .3s;}
+  .arrow.lit{color:var(--accent);text-shadow:0 0 6px var(--accent);}
+  .attack-panel{margin-top:20px;background:var(--surface);border:1px solid rgba(255,68,102,0.25);border-radius:8px;padding:14px;}
+  .attack-title{font-family:var(--mono);font-size:11px;color:var(--red);letter-spacing:1px;margin-bottom:10px;}
+  .attack-btns{display:flex;flex-wrap:wrap;gap:7px;}
+  .attack-btn{background:transparent;border:1px solid rgba(255,68,102,0.35);border-radius:5px;color:var(--red);font-family:var(--mono);font-size:11px;padding:5px 11px;cursor:pointer;transition:background .2s;}
+  .attack-btn:hover{background:rgba(255,68,102,0.1);border-color:var(--red);}
+  .score-bar{margin-top:16px;display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;}
+  .score-label{color:var(--muted);min-width:60px;}
+  .score-track{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden;}
+  .score-fill{height:100%;width:0%;background:var(--green);border-radius:3px;transition:width .5s ease;box-shadow:0 0 6px var(--green);}
+  .score-pct{color:var(--green);min-width:36px;text-align:right;}
+  .log-box{margin-top:16px;background:#020608;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:var(--mono);font-size:11px;max-height:140px;overflow-y:auto;line-height:1.7;}
+  .log-line{display:flex;gap:8px;}
+  .log-time{color:var(--muted);min-width:56px;}
+  .log-pass{color:var(--green);}
+  .log-fail{color:var(--red);}
+  .log-warn{color:var(--amber);}
+  .log-info{color:var(--accent);}
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <header>
+    <h1>⬡ SECURITY STACK SIMULATOR</h1>
+    <p>WPA3 · AES-256-GCM · Duo Key · Bit Split · TOR · TLS · ZTN · mTLS · 802.1X · MFA · HSM · AIAD · Honeypot · QKD · Post-Quantum</p>
+  </header>
+
+  <div class="payload-box">
+    <div class="payload-label">PAYLOAD</div>
+    <div class="payload-value" id="payload-display">—</div>
+  </div>
+
+  <div class="send-box">
+    <input type="text" id="msg-input" placeholder="พิมพ์ข้อความที่ต้องการส่ง..." maxlength="80"/>
+    <button id="send-btn" onclick="startSim()">▶ ส่งข้อมูล</button>
+  </div>
+
+  <div class="pipeline" id="pipeline"></div>
+
+  <div class="attack-panel">
+    <div class="attack-title">⚠ ATTACK SIMULATION</div>
+    <div class="attack-btns">
+      <button class="attack-btn" onclick="doAttack('bruteforce')">Brute Force</button>
+      <button class="attack-btn" onclick="doAttack('mitm')">Man-in-the-Middle</button>
+      <button class="attack-btn" onclick="doAttack('tamper')">Packet Tamper</button>
+      <button class="attack-btn" onclick="doAttack('replay')">Replay Attack</button>
+      <button class="attack-btn" onclick="doAttack('eavesdrop')">Quantum Eavesdrop</button>
+      <button class="attack-btn" onclick="doAttack('exfil')">Data Exfiltration</button>
+      <button class="attack-btn" onclick="doAttack('honeypot')">Honeypot Probe</button>
+    </div>
+  </div>
+
+  <div class="score-bar">
+    <span class="score-label">SECURITY</span>
+    <div class="score-track"><div class="score-fill" id="score-fill"></div></div>
+    <span class="score-pct" id="score-pct">0%</span>
+  </div>
+
+  <div class="log-box" id="log-box">
+    <div class="log-line"><span class="log-time">--:--:--</span><span class="log-info">System ready. พิมพ์ข้อความแล้วกด ▶ ส่งข้อมูล</span></div>
+  </div>
+</div>
+
+<script>
+const LAYERS=[
+  {id:'wpa3',    name:'WPA3 / SAE',           desc:'Simultaneous Authentication of Equals handshake', time:300, result:'PMK derived — SAE handshake complete'},
+  {id:'aes',     name:'AES-256-GCM + HMAC',   desc:'Authenticated encryption — 3 block layers',       time:350, result:'Encrypted + GCM auth tag verified'},
+  {id:'pubkey',  name:'Public Key + Duo Key',  desc:'ECDH-P521 + RSA key encapsulation',               time:380, result:'Shared secret encapsulated'},
+  {id:'bitsplit',name:'Bit Splitting + Noise', desc:'011000/011001 spread + 4:1 noise padding',         time:280, result:'Bit stream noise-padded — pattern hidden'},
+  {id:'tor',     name:'TOR Onion Routing',     desc:'3-hop onion encryption — exit node blind',         time:420, result:'Onion wrapped ×3 — exit node blind'},
+  {id:'tls',     name:'TLS-inside-TOR',        desc:'End-to-end TLS layer inside TOR tunnel',           time:240, result:'TLS inner layer — exit node cannot read'},
+  {id:'ztn',     name:'Zero Trust Network',    desc:'Every request re-verified — no implicit trust',    time:280, result:'All ZTN factors verified — access granted'},
+  {id:'mtls',    name:'mTLS + 802.1X',         desc:'Mutual cert auth + RADIUS port control',           time:280, result:'mTLS cert OK + RADIUS port open'},
+  {id:'mfa',     name:'MFA / TOTP',            desc:'Time-based OTP — 30s window',                     time:230, result:'TOTP code verified — session authenticated'},
+  {id:'hsm',     name:'HSM Key Store',         desc:'Key-wrapped vault — zeroize after 1000 ops',       time:200, result:'Key wrapped in HSM — plaintext RAM clear'},
+  {id:'aiad',    name:'AI Anomaly Detection',  desc:'Z-score behavioral baseline — adaptive',           time:380, result:'AI score 0.0/100 — traffic normal'},
+  {id:'honeypot',name:'Honeypot + Decoy',      desc:'Fake network traps — logs & isolates intruder',    time:280, result:'Real network path — no decoy triggered'},
+  {id:'qkd',     name:'QKD + Post-Quantum',    desc:'BB84 + CRYSTALS-Kyber + privacy amplification',    time:480, result:'QKD clean + PQ key active — Eve-proof'},
+];
+
+const ATTACKS={
+  bruteforce: {target:'wpa3',    label:'Brute Force',        msg:'SAE prevents offline attack — PMK unreachable'},
+  mitm:       {target:'mtls',    label:'Man-in-the-Middle',  msg:'mTLS requires both certs — handshake rejected'},
+  tamper:     {target:'aes',     label:'Packet Tamper',      msg:'GCM auth tag detects bit-flip — packet dropped'},
+  replay:     {target:'mfa',     label:'Replay Attack',      msg:'TOTP expires in 30s — replay token invalid'},
+  eavesdrop:  {target:'qkd',     label:'Quantum Eavesdrop',  msg:'Error rate 13%+ detected — key discarded, PQ fallback'},
+  exfil:      {target:'aiad',    label:'Data Exfiltration',  msg:'Z-score 317σ anomaly — BLOCKED & logged'},
+  honeypot:   {target:'honeypot',label:'Honeypot Probe',     msg:'Decoy network triggered — IP logged & isolated'},
+};
+
+let running=false;
+let passCount=0;
+
+function buildPipeline(){
+  const el=document.getElementById('pipeline');
+  el.innerHTML='';
+  LAYERS.forEach((l,i)=>{
+    const d=document.createElement('div');
+    d.className='layer';d.id='layer-'+l.id;
+    d.innerHTML=`<span class="layer-num">${String(i+1).padStart(2,'0')}</span><div><div class="layer-name">${l.name}</div><div class="layer-desc" id="desc-${l.id}">${l.desc}</div></div><span class="layer-status idle" id="status-${l.id}">IDLE</span>`;
+    el.appendChild(d);
+    if(i<LAYERS.length-1){const a=document.createElement('div');a.className='arrow';a.id='arrow-'+i;a.textContent='↓';el.appendChild(a);}
+  });
+}
+
+function setScore(pct){
+  document.getElementById('score-fill').style.width=pct+'%';
+  document.getElementById('score-pct').textContent=pct+'%';
+}
+
+function addLog(type,msg){
+  const box=document.getElementById('log-box');
+  const now=new Date();
+  const t=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  const line=document.createElement('div');line.className='log-line';
+  line.innerHTML=`<span class="log-time">${t}</span><span class="log-${type}">${msg}</span>`;
+  box.appendChild(line);box.scrollTop=box.scrollHeight;
+}
+
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+function randHex(n){return Array.from({length:n},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join('');}
+
+async function startSim(){
+  if(running)return;
+  const input=document.getElementById('msg-input').value.trim();
+  if(!input){addLog('warn','กรุณาพิมพ์ข้อความก่อน');return;}
+  running=true;passCount=0;
+  document.getElementById('send-btn').disabled=true;
+  buildPipeline();setScore(0);
+  const payEl=document.getElementById('payload-display');
+  payEl.className='payload-value';payEl.textContent=input;
+  addLog('info',`── เริ่มส่ง: "${input}" ──`);
+
+  for(let i=0;i<LAYERS.length;i++){
+    const l=LAYERS[i];
+    const layEl=document.getElementById('layer-'+l.id);
+    const stEl=document.getElementById('status-'+l.id);
+    const deEl=document.getElementById('desc-'+l.id);
+    const arEl=document.getElementById('arrow-'+i);
+    layEl.className='layer active';stEl.className='layer-status running';stEl.textContent='···';
+    if(arEl)arEl.className='arrow lit';
+    await sleep(l.time);
+    layEl.className='layer done';stEl.className='layer-status pass';stEl.textContent='PASS';
+    deEl.textContent=l.result;passCount++;
+    // update payload
+    if(i===0){payEl.className='payload-value encrypted';payEl.textContent='[WPA3] '+randHex(16)+'...';}
+    else if(i===1){payEl.textContent='[AES-GCM] '+randHex(24)+'...';}
+    else if(i===3){payEl.textContent='[BITSPLIT] 011000 011001 011000 011001 ...';}
+    else if(i===4){payEl.textContent='[ONION-3] '+randHex(32)+'...';}
+    else if(i===LAYERS.length-1){payEl.className='payload-value delivered';payEl.textContent='✓ DELIVERED — '+input;}
+    else{payEl.textContent='[L'+(i+1)+'] '+randHex(20)+'...';}
+    addLog('pass',`[${String(i+1).padStart(2,'0')}] ${l.name} — PASS`);
+    setScore(Math.round((passCount/LAYERS.length)*100));
+    await sleep(60);
+  }
+  addLog('pass','── ส่งสำเร็จ 100% — ทุก layer ผ่าน ──');
+  document.getElementById('send-btn').disabled=false;running=false;
+}
+
+async function doAttack(type){
+  if(running)return;
+  const atk=ATTACKS[type];if(!atk)return;
+  addLog('warn',`⚠ ATTACK: ${atk.label} → ${atk.target.toUpperCase()}`);
+  const layEl=document.getElementById('layer-'+atk.target);
+  const stEl=document.getElementById('status-'+atk.target);
+  if(!layEl)return;
+  const prevClass=layEl.className;
+  layEl.className='layer attacked';
+  if(stEl){stEl.className='layer-status fail';stEl.textContent='BLOCKED';}
+  await sleep(700);
+  addLog('fail',`✗ ${atk.label} BLOCKED — ${atk.msg}`);
+  await sleep(1200);
+  layEl.className=prevClass;
+  if(stEl){
+    if(prevClass.includes('done')){stEl.className='layer-status pass';stEl.textContent='PASS';}
+    else{stEl.className='layer-status idle';stEl.textContent='IDLE';}
+  }
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  buildPipeline();
+  document.getElementById('msg-input').addEventListener('keydown',e=>{if(e.key==='Enter')startSim();});
+});
+</script>
+</body>
+</html>
