@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ดาต้าเซ็นเตอร์ในอวกาศ: ข้อดี vs ข้อเสีย</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #070A14;
+    --panel: #10152A;
+    --panel-line: #1E2745;
+    --text: #E9ECF7;
+    --muted: #8891B0;
+    --pro: #5CE0A0;
+    --pro-dim: #1B3A2D;
+    --con: #F5975C;
+    --con-dim: #3A241B;
+    --orbit: #2E3A66;
+    --accent: #6FA8FF;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background: radial-gradient(ellipse at 50% -10%, #101A38 0%, var(--bg) 55%);
+    color: var(--text);
+    font-family: 'IBM Plex Sans Thai', sans-serif;
+    min-height:100vh;
+    padding: 48px 20px 64px;
+    position:relative;
+    overflow-x:hidden;
+  }
+  /* starfield */
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background-image:
+      radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,.5) 50%, transparent 50%),
+      radial-gradient(1px 1px at 80% 15%, rgba(255,255,255,.4) 50%, transparent 50%),
+      radial-gradient(1.5px 1.5px at 40% 70%, rgba(255,255,255,.35) 50%, transparent 50%),
+      radial-gradient(1px 1px at 65% 85%, rgba(255,255,255,.4) 50%, transparent 50%),
+      radial-gradient(1px 1px at 90% 60%, rgba(255,255,255,.3) 50%, transparent 50%),
+      radial-gradient(1.5px 1.5px at 25% 45%, rgba(255,255,255,.3) 50%, transparent 50%),
+      radial-gradient(1px 1px at 55% 10%, rgba(255,255,255,.4) 50%, transparent 50%);
+    background-repeat: repeat;
+    background-size: 600px 600px;
+    opacity:.6;
+    pointer-events:none;
+    z-index:0;
+  }
+  .wrap{ max-width: 1040px; margin: 0 auto; position:relative; z-index:1;}
+
+  /* HERO */
+  header{ text-align:center; margin-bottom: 56px; }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+  h1{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:700;
+    font-size: clamp(30px, 5.2vw, 52px);
+    line-height:1.15;
+    letter-spacing: -0.5px;
+  }
+  h1 span{ color: var(--accent); }
+  .sub{
+    font-size: 15px;
+    color: var(--muted);
+    margin-top: 14px;
+    max-width: 520px;
+    margin-left:auto; margin-right:auto;
+  }
+
+  /* ORBIT DIVIDER */
+  .orbit-divider{
+    display:flex; align-items:center; justify-content:center; gap:14px;
+    margin: 0 0 40px;
+    color: var(--muted);
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+  }
+  .orbit-divider .line{ flex:1; height:1px; background: linear-gradient(90deg, transparent, var(--orbit), transparent); max-width:220px;}
+  .orbit-divider .dot{ width:6px; height:6px; border-radius:50%; background: var(--accent); box-shadow: 0 0 8px var(--accent);}
+
+  /* GRID */
+  .grid{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+  }
+  @media (max-width: 760px){
+    .grid{ grid-template-columns: 1fr; }
+  }
+
+  .col{
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    border-radius: 18px;
+    padding: 28px 26px 30px;
+    position:relative;
+    overflow:hidden;
+  }
+  .col::before{
+    content:"";
+    position:absolute; top:0; left:0; right:0; height:3px;
+  }
+  .col.pro::before{ background: linear-gradient(90deg, var(--pro), transparent); }
+  .col.con::before{ background: linear-gradient(90deg, var(--con), transparent); }
+
+  .col-head{
+    display:flex; align-items:center; gap:12px;
+    margin-bottom: 22px;
+  }
+  .badge{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:700;
+    font-size: 20px;
+    width: 40px; height:40px;
+    display:flex; align-items:center; justify-content:center;
+    border-radius: 10px;
+  }
+  .col.pro .badge{ background: var(--pro-dim); color: var(--pro); }
+  .col.con .badge{ background: var(--con-dim); color: var(--con); }
+  .col-title{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size: 19px;
+  }
+  .col.pro .col-title{ color: var(--pro); }
+  .col.con .col-title{ color: var(--con); }
+
+  .item{
+    display:flex; gap: 14px;
+    padding: 14px 0;
+    border-top: 1px solid var(--panel-line);
+  }
+  .item:first-of-type{ border-top:none; padding-top:0; }
+  .item-icon{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    min-width: 26px;
+    padding-top: 3px;
+  }
+  .item-text .t{
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 3px;
+  }
+  .item-text .d{
+    font-size: 13.5px;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+
+  /* FOOTER STAT STRIP */
+  .strip{
+    margin-top: 40px;
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    border-radius: 18px;
+    padding: 26px 30px;
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    text-align:center;
+  }
+  @media (max-width: 640px){ .strip{ grid-template-columns: 1fr; } }
+  .strip .stat-num{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:700;
+    font-size: 26px;
+    color: var(--accent);
+  }
+  .strip .stat-label{
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .strip .stat + .stat{
+    border-left: 1px solid var(--panel-line);
+  }
+  @media (max-width: 640px){ .strip .stat + .stat{ border-left:none; border-top: 1px solid var(--panel-line); padding-top: 16px; } }
+
+  footer{
+    text-align:center;
+    margin-top: 36px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">// ORBITAL COMPUTE — 2026 BRIEFING</div>
+    <h1>ดาต้าเซ็นเตอร์<span>ในอวกาศ</span></h1>
+    <p class="sub">ย้ายเซิร์ฟเวอร์ขึ้นวงโคจร — คุ้มค่าจริงหรือแค่ฝันไกล? สรุปข้อดี-ข้อเสียให้เห็นภาพ</p>
+  </header>
+
+  <div class="orbit-divider">
+    <div class="line"></div>
+    <div class="dot"></div>
+    <span>PROS / CONS</span>
+    <div class="dot"></div>
+    <div class="line"></div>
+  </div>
+
+  <div class="grid">
+
+    <div class="col pro">
+      <div class="col-head">
+        <div class="badge">+</div>
+        <div class="col-title">ข้อดี</div>
+      </div>
+
+      <div class="item">
+        <div class="item-icon">01</div>
+        <div class="item-text">
+          <div class="t">พลังงานแสงอาทิตย์ไม่มีวันหยุด</div>
+          <div class="d">รับแสงได้เกือบ 24 ชม. ในวงโคจร ต้นทุนไฟฟ้าต่ำกว่าบนโลกมาก</div>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-icon">02</div>
+        <div class="item-text">
+          <div class="t">แก้ปัญหาไฟฟ้าไม่พอบนโลก</div>
+          <div class="d">โครงข่ายไฟฟ้าเป็นคอขวดหลักของ AI ตอนนี้ ย้ายภาระออกจากโลกได้</div>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-icon">03</div>
+        <div class="item-text">
+          <div class="t">ไม่แย่งที่ดิน-น้ำกับชุมชน</div>
+          <div class="d">ไม่ต้องใช้น้ำหล่อเย็นมหาศาลหรือที่ดินขนาดใหญ่แบบบนโลก</div>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-icon">04</div>
+        <div class="item-text">
+          <div class="t">ความเย็นตามธรรมชาติของอวกาศ</div>
+          <div class="d">ด้านที่ไม่โดนแดดเย็นจัด เอื้อต่อการแผ่ความร้อนออกในทางทฤษฎี</div>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-icon">05</div>
+        <div class="item-text">
+          <div class="t">ไม่ติดปัญหาผังเมือง/ใบอนุญาต</div>
+          <div class="d">ไม่มีการต่อต้านจากชุมชนหรือขั้นตอนขอที่ดินที่ยืดเยื้อ</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col con">
+      <div class="col-head">
+        <div class="badge">−</div>
+        <div class="col-title">ข้อเสีย</div>
+      </div>
+
+      <div class="item">
+        <div class="item-icon">01</div>
+        <div class="item-text">
+          <div class="t">ระบายความร้อนยาก</div>
+          <div class="d">ไม่มีอากาศ/น้ำช่วยพาความร้อน ต้องพึ่งการแผ่รังสีอย่างเดียว ต้องใช้แผงระบายความร้อนขนาดใหญ่</div>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-icon">02</div>
+        <div class="item-text">
+          <div class="t">ต้นทุนการส่งขึ้นวงโคจรสูง</div>
+          <div class="d">แม้ค่าปล่อยจรวดจะถูกลง แต่ฮาร์ดแวร์ที่ทนรังสีได้ยังมีต้นทุนสูงกว่าปกติมาก</div>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-icon">03</div>
+        <div class="item-text">
+          <div class="t">ซ่อมบำรุงแทบเป็นไปไม่ได้</div>
+          <div class="d">อุปกรณ์พังแล้วเปลี่ยนยาก ต่างจากดาต้าเซ็นเตอร์บนโลกที่ซ่อมได้ทันที</div>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-icon">04</div>
+        <div class="item-text">
+          <div class="t">ความหน่วง & แบนด์วิดท์จำกัด</div>
+          <div class="d">ไม่เหมาะกับงาน real-time หรือ AI training ที่ต้อง sync ข้อมูลถี่ๆ ระหว่างโหนด</div>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-icon">05</div>
+        <div class="item-text">
+          <div class="t">รังสีคอสมิกทำฮาร์ดแวร์เสื่อมเร็ว</div>
+          <div class="d">ชิปทั่วไปเสียหายภายในไม่กี่เดือนในวงโคจรต่ำ ต้องพิสูจน์ความทนทานระยะยาว</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="strip">
+    <div class="stat">
+      <div class="stat-num">2026–2035</div>
+      <div class="stat-label">ช่วงเวลาที่คาดว่าจะใช้งานเชิงพาณิชย์จริงจัง</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">8+</div>
+      <div class="stat-label">บริษัททั่วโลกที่ลงมือทำโครงการนี้แล้ว</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">US 🆚 CN</div>
+      <div class="stat-label">การแข่งขันหลักด้านโครงสร้างพื้นฐานคำนวณในวงโคจร</div>
+    </div>
+  </div>
+
+  <footer>SPACE DATA CENTER BRIEFING · AUG 2026</footer>
+
+</div>
+</body>
+</html>
